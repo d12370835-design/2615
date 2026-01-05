@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>糖霜鎮：完美比例行動 (Sugarveil Town)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #2c2c2c;
+            user-select: none;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        /* UI 層 */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* 頂部資訊列 */
+        .top-bar {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: auto;
+        }
+
+        .level-info {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 15px;
+            border: 3px solid #FF9AA2;
+            color: #555;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #FF9AA2;
+        }
+
+        .sweetness-meter-container {
+            width: 300px;
+            background: #444;
+            border-radius: 20px;
+            padding: 5px;
+            border: 3px solid #fff;
+            position: relative;
+        }
+
+        .sweetness-label {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        #sweetness-bar {
+            width: 0%;
+            height: 20px;
+            background: linear-gradient(90deg, #FFB7B2, #FF9AA2);
+            border-radius: 15px;
+            transition: width 0.2s;
+        }
+
+        /* 底部控制提示 */
+        .controls-hint {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            font-size: 14px;
+        }
+
+        .p1-box { color: #E0BBE4; }
+        .p2-box { color: #FEC8D8; }
+        .key {
+            display: inline-block;
+            background: #fff;
+            color: #333;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin: 0 2px;
+            font-weight: bold;
+            box-shadow: 0 2px 0 #ccc;
+        }
+
+        /* 對話框與通知 */
+        #dialog-box {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 30px;
+            border-radius: 10px;
+            border: 4px solid #957DAD;
+            text-align: center;
+            font-size: 18px;
+            color: #4A4A4A;
+            max-width: 60%;
+            display: none;
+            animation: popUp 0.3s ease-out;
+        }
+
+        /* 開始/結束 畫面 */
+        #overlay-screen, #victory-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            pointer-events: auto;
+            z-index: 100;
+        }
+
+        #victory-screen {
+            display: none;
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        h1 { font-size: 48px; color: #FFDAC1; text-shadow: 2px 2px 0 #FF9AA2; margin-bottom: 10px; }
+        h2 { font-size: 24px; color: #E2F0CB; margin-bottom: 30px; }
+        
+        button.start-btn {
+            background: #FF9AA2;
+            border: none;
+            padding: 15px 40px;
+            font-size: 24px;
+            color: white;
+            border-radius: 50px;
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #D2691E;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        button.start-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #D2691E;
+        }
+
+        .story-text {
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            color: #ddd;
+        }
+
+        @keyframes popUp {
+            from { transform: translateX(-50%) scale(0.8); opacity: 0; }
+            to { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+
+        /* 泡泡特效 */
+        .bubble-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 20%, rgba(56, 46, 28, 0.5) 100%);
+            display: none;
+            pointer-events: none;
+            mix-blend-mode: multiply;
+        }
+    </style>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="game-container"></div>
+    <div class="bubble-overlay" id="bitter-overlay"></div>
+
+    <div id="ui-layer">
+        <div class="top-bar">
+            <!-- 移除選擇器，只保留顯示 -->
+            <div class="level-info" id="level-display">關卡 1</div>
+            
+            <div class="sweetness-meter-container" id="sweetness-container" style="display:none;">
+                <div class="sweetness-label">甜度平衡 / 淨化進度</div>
+                <div id="sweetness-bar"></div>
+            </div>
+        </div>
+
+        <div id="dialog-box" style="display:none;"></div>
+
+        <div class="controls-hint">
+            <div class="p1-box">
+                <strong>● 珍珠 (Pearl)</strong><br>
+                移動: <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span><br>
+                跳躍: <span class="key">Space</span>
+            </div>
+            <div class="p2-box" style="text-align: right;">
+                <strong>■ 布丁 (Pudding)</strong><br>
+                移動: <span class="key">↑</span><span class="key">←</span><span class="key">↓</span><span class="key">→</span><br>
+                變形/互動: <span class="key">L</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="overlay-screen">
+        <h1>糖霜鎮：完美比例行動</h1>
+        <h2>Sugarveil Town: Perfect Ratio Operation</h2>
+        <div class="story-text">
+            糖霜鎮被「苦澀能量」入侵了！<br>
+            甜點們變得暴躁，世界失去了色彩。<br>
+            操作 <b>珍珠</b> 與 <b>布丁</b>，透過合作解謎，淨化污染，找回完美的甜度比例！
+        </div>
+        <button class="start-btn" onclick="startGame()">開始冒險</button>
+    </div>
+
+    <!-- 通關畫面 -->
+    <div id="victory-screen">
+        <h1 style="font-size: 64px; color: #77DD77; text-shadow: 3px 3px 0 #2c2c2c;">通關完成！</h1>
+        <h2>Sugarveil Restored</h2>
+        <div class="story-text">
+            感謝兩位小甜點的努力！<br>
+            糖霜鎮恢復了往日的甜蜜與和平。<br>
+            完美的甜度比例再次回歸！
+        </div>
+        <button class="start-btn" onclick="location.reload()">再玩一次</button>
+    </div>
+
+<script>
+    // --- 遊戲變數與設定 ---
+    let scene, camera, renderer;
+    let clock, deltaTime;
+    let pearl, pudding;
+    let keys = {};
+    let interactables = []; // 所有可互動的物件
+    let obstacles = [];     // 牆壁、地板 (碰撞體)
+    let raycaster;          // 用於接地檢測
+    let currentLevel = 0;
+    let sweetness = 0;
+    let isGameRunning = false;
+    let levelComplete = false;
+
+    // 顏色設定
+    const COLORS = {
+        pearl: 0x1a0d00, // 極深咖啡色 (接近黑)
+        pudding: 0xFFE066, // 布丁黃
+        puddingTop: 0x5C4033, // 焦糖色
+        floor: 0xFFFDD0, // 奶油色
+        wall: 0xFFDAC1, // 淺橘色
+        bitter: 0x4B5320, // 苦澀綠/軍綠
+        pipe: 0xADD8E6, // 透明藍管
+        switch: 0xFF6961, // 紅色 (開關/未觸發攻擊點)
+        active: 0x3399FF, // 藍色 (壓力板觸發)
+        goal: 0x77DD77, // 綠色 (已完成/未觸發壓力板)
+        locked: 0xFF4444 // 紅色鎖定區
+    };
+
+    // --- 初始化 Three.js ---
+    function init() {
+        const container = document.getElementById('game-container');
+        
+        // 場景
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xF0F8FF); // 天空藍
+        scene.fog = new THREE.Fog(0xF0F8FF, 20, 100);
+
+        // 相機 (等角視角)
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 30, 40);
+        camera.lookAt(0, 0, 0);
+
+        // 渲染器
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+        
+        // 物理射線
+        raycaster = new THREE.Raycaster();
+
+        // 燈光
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 40, 20);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 100;
+        dirLight.shadow.camera.left = -30;
+        dirLight.shadow.camera.right = 30;
+        dirLight.shadow.camera.top = 30;
+        dirLight.shadow.camera.bottom = -30;
+        scene.add(dirLight);
+
+        clock = new THREE.Clock();
+
+        // 監聽按鍵
+        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keyup', (e) => keys[e.code] = false);
+        window.addEventListener('resize', onWindowResize, false);
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // --- 角色類別 ---
+    class Player {
+        constructor(mesh, name, startPos) {
+            this.mesh = mesh;
+            this.name = name;
+            this.mesh.position.copy(startPos);
+            this.mesh.castShadow = true;
+            this.mesh.receiveShadow = true;
+            scene.add(this.mesh);
+
+            this.velocity = new THREE.Vector3(0, 0, 0);
+            this.speed = 10;
+            this.isGrounded = false;
+            
+            // 狀態機
+            this.state = 'normal'; 
+            
+            // 修正：增加站立高度屬性，用於變形時調整碰撞盒中心
+            this.standHeight = 1.0; 
+        }
+
+        update(dt) {
+            // 1. 水平移動 - X軸
+            const originalX = this.mesh.position.x;
+            this.mesh.position.x += this.velocity.x * dt;
+            if (this.checkCollision(true)) {
+                this.mesh.position.x = originalX;
+            }
+
+            // 2. 水平移動 - Z軸
+            const originalZ = this.mesh.position.z;
+            this.mesh.position.z += this.velocity.z * dt;
+            if (this.checkCollision(true)) {
+                this.mesh.position.z = originalZ;
+            }
+
+            // 3. 垂直移動 (重力)
+            // 如果布丁變形成平台，則不受重力影響
+            if (this.name === 'Pudding' && this.form === 'platform') {
+                this.velocity.y = 0; 
+            } else {
+                this.velocity.y -= 30 * dt; 
+            }
+            
+            this.mesh.position.y += this.velocity.y * dt;
+
+            // 4. 接地判定 (Raycast)
+            this.isGrounded = false;
+            
+            const groundY = this.findGroundY();
+            
+            if (groundY > -500) {
+                // 修正：使用 standHeight 判定接地距離
+                // 地板表面 Y = groundY. 角色中心 Y = groundY + standHeight.
+                const snapDist = 0.1;
+                const targetY = groundY + this.standHeight;
+                
+                if (this.mesh.position.y <= targetY + snapDist && this.velocity.y <= 0) {
+                    this.mesh.position.y = targetY;
+                    this.velocity.y = 0;
+                    this.isGrounded = true;
+                }
+            }
+
+            // 掉落重置
+            if (this.mesh.position.y < -10) {
+                if(this.name === 'Pearl') this.mesh.position.set(-3, 5, 10);
+                else this.mesh.position.set(3, 5, 10);
+                
+                this.velocity.set(0, 0, 0);
+            }
+        }
+
+        checkCollision(horizontal = false) {
+            const playerBox = new THREE.Box3().setFromObject(this.mesh);
+            
+            if (horizontal) {
+                const stepHeight = 0.2; 
+                playerBox.min.y += stepHeight;
+                playerBox.max.y -= 0.1; 
+            }
+            
+            playerBox.expandByScalar(-0.1);
+
+            for (let obs of obstacles) {
+                const obsBox = new THREE.Box3().setFromObject(obs);
+                if (playerBox.intersectsBox(obsBox)) {
+                    return true;
+                }
+            }
+            
+            const otherPlayer = (this.name === 'Pearl') ? pudding : pearl;
+            if (otherPlayer && otherPlayer.mesh) {
+                const otherBox = new THREE.Box3().setFromObject(otherPlayer.mesh);
+                otherBox.expandByScalar(-0.1);
+                if (playerBox.intersectsBox(otherBox)) {
+                     return true;
+                }
+            }
+
+            return false;
+        }
+
+        findGroundY() {
+            if (!raycaster) return -999;
+
+            const start = this.mesh.position.clone();
+            start.y += 1; 
+            
+            raycaster.set(start, new THREE.Vector3(0, -1, 0));
+            
+            let checkList = [...obstacles];
+            const otherPlayer = (this.name === 'Pearl') ? pudding : pearl;
+            if (otherPlayer) checkList.push(otherPlayer.mesh);
+
+            const intersects = raycaster.intersectObjects(checkList, true);
+            
+            if (intersects.length > 0) {
+                return intersects[0].point.y; 
+            }
+            return -999; 
+        }
+    }
+
+    class Pearl extends Player {
+        constructor() {
+            const geometry = new THREE.SphereGeometry(0.8, 32, 32);
+            const material = new THREE.MeshPhongMaterial({ color: COLORS.pearl, shininess: 100 });
+            super(new THREE.Mesh(geometry, material), 'Pearl', new THREE.Vector3(-2, 5, 10));
+            
+            this.speed = 8; 
+        }
+
+        handleInput(dt) {
+            this.velocity.x = 0;
+            this.velocity.z = 0;
+
+            if (keys['KeyW']) this.velocity.z = -this.speed;
+            if (keys['KeyS']) this.velocity.z = this.speed;
+            if (keys['KeyA']) this.velocity.x = -this.speed;
+            if (keys['KeyD']) this.velocity.x = this.speed;
+
+            if (keys['Space']) {
+                if (!this.keyJumpPressed) {
+                    if (this.isGrounded) {
+                        this.velocity.y = 15; 
+                        this.keyJumpPressed = true;
+                    }
+                }
+            } else {
+                this.keyJumpPressed = false;
+            }
+        }
+    }
+
+    class Pudding extends Player {
+        constructor() {
+            const geometry = new THREE.CylinderGeometry(0.8, 0.9, 1.6, 32);
+            const material = new THREE.MeshLambertMaterial({ color: COLORS.pudding });
+            const topGeo = new THREE.CylinderGeometry(1.0, 1.0, 0.5, 32);
+            const topMat = new THREE.MeshLambertMaterial({ color: COLORS.puddingTop });
+            const topMesh = new THREE.Mesh(topGeo, topMat);
+            topMesh.position.y = 0.6;
+            
+            const group = new THREE.Group();
+            const bodyMesh = new THREE.Mesh(geometry, material);
+            group.add(bodyMesh);
+            group.add(topMesh);
+
+            super(group, 'Pudding', new THREE.Vector3(2, 5, 10));
+            this.form = 'normal'; 
+        }
+
+        handleInput(dt) {
+            this.velocity.x = 0;
+            this.velocity.z = 0;
+
+            let speedMod = this.form === 'normal' ? 1 : 0.6;
+            if(this.form === 'platform') speedMod = 0.4; 
+
+            if (keys['ArrowUp']) this.velocity.z = -this.speed * speedMod;
+            if (keys['ArrowDown']) this.velocity.z = this.speed * speedMod;
+            if (keys['ArrowLeft']) this.velocity.x = -this.speed * speedMod;
+            if (keys['ArrowRight']) this.velocity.x = this.speed * speedMod;
+
+            if (keys['KeyL'] && !this.keyLPressed) {
+                if (!checkInteraction(this)) {
+                    if (currentLevel === 1) { 
+                        this.transformTo(this.form === 'flat' ? 'normal' : 'flat');
+                    } else if (currentLevel === 2) {
+                        this.transformTo(this.form === 'platform' ? 'normal' : 'platform');
+                    } else if (currentLevel === 3) {
+                        this.transformTo(this.form === 'flat' ? 'normal' : 'flat');
+                    } else if (currentLevel === 4) {
+                        this.transformTo(this.form === 'platform' ? 'normal' : 'platform');
+                    }
+                }
+                this.keyLPressed = true;
+            } else if (!keys['KeyL']) {
+                this.keyLPressed = false;
+            }
+        }
+
+        transformTo(type) {
+            if (this.form === 'platform' && type === 'normal') {
+                this.mesh.position.z -= 4.0; 
+                createParticles(this.mesh.position, COLORS.pudding);
+            }
+
+            this.form = type;
+            createParticles(this.mesh.position, COLORS.pudding);
+            if (type === 'flat') {
+                this.mesh.scale.set(1.4, 0.25, 1.4); 
+                this.standHeight = 0.4; // 修正：變形為 flat 時降低站立高度，讓中心點下降
+            } else if (type === 'platform') {
+                this.mesh.scale.set(3.0, 0.5, 10.0); 
+                this.mesh.rotation.x = 0;
+                this.standHeight = 1.0;
+            } else if (type === 'funnel') {
+                this.mesh.scale.set(1.5, 1.5, 1.5); 
+                this.mesh.rotation.x = Math.PI; 
+                this.standHeight = 1.0;
+            } else {
+                this.mesh.scale.set(1, 1, 1);
+                this.mesh.rotation.x = 0;
+                this.standHeight = 1.0; // 恢復正常高度
+            }
+        }
+    }
+
+    // --- 系統功能 ---
+
+    function createParticles(pos, color) {
+        for(let i=0; i<5; i++) {
+            const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+            const mat = new THREE.MeshBasicMaterial({ color: color });
+            const p = new THREE.Mesh(geo, mat);
+            p.position.copy(pos);
+            p.position.x += (Math.random() - 0.5);
+            p.position.y += (Math.random() * 1);
+            p.position.z += (Math.random() - 0.5);
+            scene.add(p);
+            
+            const duration = 500;
+            const start = Date.now();
+            const animateP = () => {
+                const now = Date.now();
+                const progress = (now - start) / duration;
+                if (progress < 1) {
+                    p.position.y += 0.05;
+                    p.scale.setScalar(1 - progress);
+                    requestAnimationFrame(animateP);
+                } else {
+                    scene.remove(p);
+                }
+            };
+            animateP();
+        }
+    }
+
+    // 特效：發射攻擊飛行物
+    function fireProjectile(startPos, endPos, onHit) {
+        const geo = new THREE.SphereGeometry(0.5, 8, 8);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xFF00FF }); // 紫粉色魔法彈
+        const proj = new THREE.Mesh(geo, mat);
+        proj.position.copy(startPos);
+        scene.add(proj);
+
+        const duration = 500; // ms
+        const startTime = Date.now();
+
+        const animateProj = () => {
+            const now = Date.now();
+            const progress = Math.min((now - startTime) / duration, 1);
+            
+            // Lerp position
+            proj.position.lerpVectors(startPos, endPos, progress);
+
+            if (progress < 1) {
+                requestAnimationFrame(animateProj);
+            } else {
+                scene.remove(proj);
+                if (onHit) onHit();
+            }
+        };
+        animateProj();
+    }
+
+    function showDialog(text, duration = 3000) {
+        const box = document.getElementById('dialog-box');
+        box.innerText = text;
+        box.style.display = 'block';
+        if (window.dialogTimeout) clearTimeout(window.dialogTimeout);
+        if (duration > 0) {
+            window.dialogTimeout = setTimeout(() => {
+                box.style.display = 'none';
+            }, duration);
+        }
+    }
+
+    function checkInteraction(player) {
+        let acted = false;
+        interactables.forEach(obj => {
+            if (player.mesh.position.distanceTo(obj.position) < obj.radius) {
+                if (obj.onInteract && obj.targetPlayer === player.name) {
+                    obj.onInteract();
+                    acted = true;
+                }
+            }
+        });
+        return acted;
+    }
+
+    function clearLevel() {
+        const toRemove = [];
+        scene.traverse(child => {
+            if (child.isMesh && child !== pearl.mesh && child !== pudding.mesh && !pearl.mesh.children.includes(child) && !pudding.mesh.children.includes(child)) {
+                toRemove.push(child);
+            }
+        });
+        toRemove.forEach(obj => scene.remove(obj));
+        interactables = [];
+        obstacles = [];
+        sweetness = 0;
+        levelComplete = false;
+        updateSweetnessUI();
+        document.getElementById('bitter-overlay').style.display = 'none';
+        document.getElementById('victory-screen').style.display = 'none';
+    }
+
+    function createFloor(width, depth, zPos, color = COLORS.floor) {
+        const geo = new THREE.BoxGeometry(width, 2, depth);
+        const mat = new THREE.MeshLambertMaterial({ color: color });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(0, 0, zPos); 
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+        obstacles.push(mesh);
+        return mesh;
+    }
+
+    function createWall(x, y, z, w, h, d, color = COLORS.wall) {
+        const geo = new THREE.BoxGeometry(w, h, d);
+        const mat = new THREE.MeshLambertMaterial({ color: color });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, y, z);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+        obstacles.push(mesh);
+        return mesh;
+    }
+
+    function createTrigger(x, z, radius, color, onTrigger) {
+        const geo = new THREE.CylinderGeometry(radius, radius, 0.2, 16);
+        const mat = new THREE.MeshBasicMaterial({ color: color, opacity: 0.5, transparent: true });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, 1.1, z); 
+        scene.add(mesh);
+        
+        interactables.push({
+            position: new THREE.Vector3(x, 1, z),
+            radius: radius,
+            targetPlayer: 'Pearl',
+            onInteract: null,
+            autoTrigger: onTrigger
+        });
+        interactables.push({
+            position: new THREE.Vector3(x, 1, z),
+            radius: radius,
+            targetPlayer: 'Pudding',
+            onInteract: null,
+            autoTrigger: onTrigger
+        });
+    }
+
+    // --- 具體關卡設計 ---
+
+    function loadLevel(levelIndex) {
+        clearLevel();
+        currentLevel = levelIndex;
+        levelComplete = false;
+
+        pearl.mesh.position.set(-3, 5, 10);
+        pudding.mesh.position.set(3, 5, 10);
+        pearl.velocity.set(0,0,0);
+        pudding.velocity.set(0,0,0);
+        pudding.transformTo('normal');
+        
+        document.getElementById('sweetness-container').style.display = 'none';
+        
+        // 更新關卡文字 (移除文字描述，只留關卡 X)
+        document.getElementById('level-display').innerText = "關卡 " + levelIndex;
+
+        switch(levelIndex) {
+            case 1: setupLevel1(); break;
+            case 2: setupLevel2(); break;
+            case 3: setupLevel3(); break;
+            case 4: setupLevel4(); break;
+        }
+    }
+
+    // Level 1: 分流通道
+    function setupLevel1() {
+        // 1. 右側地板
+        createWall(6, 0, -20, 12, 2, 60, COLORS.floor);
+
+        // 2. 左側地板 (挖空)
+        createWall(-6, 0, 4.5, 12, 2, 11, COLORS.floor);
+        createWall(-6, 0, -4.5, 12, 2, 6, COLORS.floor); 
+        createWall(-6, 0, -12.5, 12, 2, 6, COLORS.floor); 
+        createWall(-6, 0, -20.5, 12, 2, 6, COLORS.floor); 
+        createWall(-6, 0, -41.75, 12, 2, 36.5, COLORS.floor);
+
+        // --- 中央分隔牆 ---
+        createWall(0, 3, -20, 1, 6, 50);
+
+        // --- 左側 (Pearl): 高台跳躍 ---
+        createWall(-6, 2, -4.5, 11, 2, 6); 
+        createWall(-6, 3, -12.5, 11, 4, 6); 
+        createWall(-6, 4, -20.5, 11, 6, 6); 
+        createWall(-12, 3, -20, 1, 6, 50);
+
+        // --- 右側 (Pudding): 縫隙通道 ---
+        createWall(12, 3, -20, 1, 6, 50); 
+
+        function createTunnelWall(zPos, holeCenter) {
+            const wallH = 4; const wallD = 1;
+            const holeW = 4.0; const holeH = 0.8;
+            const leftEdge = 0.5; 
+            const holeLeft = holeCenter - holeW/2;
+            if (holeLeft > leftEdge) {
+                createWall(leftEdge + (holeLeft-leftEdge)/2, 1 + wallH/2, zPos, holeLeft-leftEdge, wallH, wallD);
+            }
+            const rightEdge = 11.5; 
+            const holeRight = holeCenter + holeW/2;
+            if (holeRight < rightEdge) {
+                createWall(holeRight + (rightEdge-holeRight)/2, 1 + wallH/2, zPos, rightEdge-holeRight, wallH, wallD);
+            }
+            createWall(holeCenter, 1 + holeH + (wallH-holeH)/2 + 0.5, zPos, holeW, wallH-holeH, wallD); 
+        }
+
+        createTunnelWall(-5, 4);
+        createTunnelWall(-15, 9); 
+        createTunnelWall(-25, 6.5);
+
+        const endZ = -55; const endW = 24; const endD = 10;
+        createFloor(endW, endD, endZ, COLORS.goal);
+        createWall(0, 3, endZ - endD/2 - 0.5, endW, 6, 1);
+        createWall(-endW/2 - 0.5, 3, endZ, 1, 6, endD);
+        createWall(endW/2 + 0.5, 3, endZ, 1, 6, endD);
+
+        scene.userData.update = () => {
+            if (!levelComplete) {
+                const inGoal = (p) => p.mesh.position.z < (endZ + endD/2) && p.mesh.position.z > (endZ - endD/2);
+                if (inGoal(pearl) && inGoal(pudding)) {
+                    levelComplete = true;
+                    setTimeout(() => loadLevel(2), 500); // 0.5s
+                }
+            }
+        };
+    }
+
+    // Level 2: 匯合搭橋
+    function setupLevel2() {
+        const gapSize = 9.0;
+        let currentZ = 10;
+
+        createFloor(20, 10, currentZ); currentZ -= (5 + gapSize + 5); 
+        createFloor(10, 10, currentZ); currentZ -= (5 + gapSize + 5);
+        createFloor(10, 10, currentZ); currentZ -= (5 + gapSize + 5);
+
+        const endW = 24; const endD = 10; const endZ = currentZ;
+        createFloor(endW, endD, endZ, COLORS.goal);
+        createWall(0, 3, endZ - endD/2 - 0.5, endW, 6, 1);
+        createWall(-endW/2 - 0.5, 3, endZ, 1, 6, endD);
+        createWall(endW/2 + 0.5, 3, endZ, 1, 6, endD);
+
+        scene.userData.update = () => {
+            if (!levelComplete) {
+                const inGoal = (p) => {
+                    return p.mesh.position.z > (endZ - endD/2) && 
+                           p.mesh.position.z < (endZ + endD/2);
+                };
+
+                if (inGoal(pearl) && inGoal(pudding)) {
+                    levelComplete = true;
+                    setTimeout(() => loadLevel(3), 500); // 0.5s
+                }
+            }
+        };
+    }
+
+    // Level 3: 管線控制
+    function setupLevel3() {
+        document.getElementById('sweetness-container').style.display = 'block';
+        sweetness = 0;
+        updateSweetnessUI();
+
+        createFloor(30, 30, 0);
+        createWall(0, 1.75, 0, 1, 1.5, 30); // 中央矮牆
+
+        function createPuddingWall(zPos) {
+            const wallH = 4; const wallD = 2;
+            const holeH = 0.8;
+            const width = 15;
+            const centerX = 7.5;
+            createWall(centerX, 1 + holeH + wallH/2, zPos, width, wallH, wallD);
+        }
+        createPuddingWall(-5);
+
+        const valvePos = new THREE.Vector3(8, 1, -12); 
+        const valveGeo = new THREE.TorusGeometry(1.5, 0.3, 16, 32);
+        const valveMat = new THREE.MeshLambertMaterial({ color: COLORS.locked }); 
+        const valve = new THREE.Mesh(valveGeo, valveMat);
+        valve.position.copy(valvePos);
+        valve.rotation.y = Math.PI / 2;
+        scene.add(valve);
+
+        const pumpPos = new THREE.Vector3(-8, 1, 8); 
+        const pumpGeo = new THREE.CylinderGeometry(2, 2, 1);
+        const pumpMat = new THREE.MeshLambertMaterial({ color: COLORS.switch });
+        const pump = new THREE.Mesh(pumpGeo, pumpMat);
+        pump.position.copy(pumpPos);
+        scene.add(pump);
+        obstacles.push(pump);
+
+        const gateX = 12; const gateZ = 8; 
+        const gate = createFloor(6, 6, gateZ, COLORS.locked);
+        gate.position.x = gateX; gate.position.y = 0.1;
+
+        let valveStatus = 'closed'; 
+
+        interactables.push({
+            position: valvePos, radius: 3, targetPlayer: 'Pudding',
+            onInteract: () => {
+                if (valveStatus === 'closed') {
+                    valveStatus = 'open';
+                    valve.material.color.setHex(0x00FF00); 
+                    showDialog("閥門開啟！", 1500);
+                } else {
+                    valveStatus = 'closed';
+                    valve.material.color.setHex(COLORS.locked);
+                    showDialog("閥門關閉！壓力鎖定。", 1500);
+                }
+            }
+        });
+
+        scene.userData.update = () => {
+            if (levelComplete) return;
+
+            const pearlOnPump = Math.abs(pearl.mesh.position.x - pumpPos.x) < 2 && Math.abs(pearl.mesh.position.z - pumpPos.z) < 2;
+            const pearlJumping = pearl.mesh.position.y > 3.5;
+
+            if (valveStatus === 'open') {
+                if (sweetness >= 100) {
+                    sweetness = 100;
+                    sweetness -= 0.3; 
+                    if (Math.random() > 0.9) showDialog("壓力過大！Pudding 快關閥門！", 500);
+                } else {
+                    if (pearlOnPump && pearlJumping) {
+                        sweetness += 0.5;
+                        if (Math.random() > 0.8) createParticles(pumpPos, 0xFFFFFF);
+                    } else {
+                        sweetness = Math.max(0, sweetness - 0.05);
+                    }
+                }
+            } else {
+                if(sweetness > 100) sweetness = 100;
+            }
+
+            updateSweetnessUI();
+
+            if (sweetness >= 99) {
+                gate.material.color.setHex(COLORS.goal);
+                const inGate = (p) => 
+                    p.mesh.position.x > (gateX - 3) && p.mesh.position.x < (gateX + 3) &&
+                    p.mesh.position.z > (gateZ - 3) && p.mesh.position.z < (gateZ + 3);
+
+                if (inGate(pearl) && inGate(pudding)) {
+                    levelComplete = true;
+                    setTimeout(() => loadLevel(4), 500); // 0.5s
+                }
+            } else {
+                gate.material.color.setHex(COLORS.locked);
+            }
+        };
+    }
+
+    // Level 4: Boss - 修正：左側平台高度 6.0
+    function setupLevel4() {
+        document.getElementById('level-display').innerText = "關卡 4"; // 更新標題
+        sweetness = 0;
+        updateSweetnessUI();
+        document.getElementById('bitter-overlay').style.display = 'block';
+
+        let bossHP = 3;
+
+        createFloor(15, 40, 0).position.x = -2.5;
+        createFloor(10, 10, 0).position.x = 19;
+
+        const bossGeo = new THREE.SphereGeometry(6, 32, 32);
+        const bossMat = new THREE.MeshPhongMaterial({ color: 0x553311, shininess: 20 });
+        const boss = new THREE.Mesh(bossGeo, bossMat);
+        boss.position.set(0, 6, -10);
+        scene.add(boss);
+
+        // 修正：平台高度調降至 6.0
+        const pillarPos = new THREE.Vector3(-12, 3.5, 0); 
+        createWall(pillarPos.x, pillarPos.y, pillarPos.z, 4, 5, 4); 
+        
+        const platePos = new THREE.Vector3(0, 1, 10);
+        const plateGeo = new THREE.BoxGeometry(3, 0.2, 3);
+        const plateMat = new THREE.MeshLambertMaterial({ color: COLORS.goal });
+        const plate = new THREE.Mesh(plateGeo, plateMat);
+        plate.position.copy(platePos);
+        scene.add(plate);
+
+        const attackPoints = [];
+
+        function createAttackPoint(x, y, z, id) {
+            const geo = new THREE.CylinderGeometry(1.5, 1.5, 0.2, 32);
+            const mat = new THREE.MeshLambertMaterial({ color: COLORS.switch }); // Red
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+            attackPoints.push({ mesh, id, active: true, used: false });
+            return mesh;
+        }
+
+        // 修正：攻擊點高度調整為 6.1
+        createAttackPoint(-12, 6.1, 0, 'A');
+        createAttackPoint(19, 1.1, 0, 'B'); 
+        const pointC = createAttackPoint(0, 1.1, 15, 'C');
+        pointC.material.color.setHex(0x888888); 
+        let plateActive = false;
+
+        scene.userData.update = () => {
+            if (levelComplete) return;
+
+            boss.position.y = 6 + Math.sin(Date.now() * 0.003) * 1;
+
+            const distToPlate = pudding.mesh.position.distanceTo(platePos);
+            if (distToPlate < 2) {
+                if (!plateActive) {
+                    plateActive = true;
+                    plate.material.color.setHex(COLORS.active);
+                    const apC = attackPoints.find(p => p.id === 'C');
+                    if (apC && !apC.used) {
+                        apC.active = true;
+                        apC.mesh.material.color.setHex(COLORS.switch);
+                    }
+                }
+            } else {
+                if (plateActive) {
+                    plateActive = false;
+                    plate.material.color.setHex(COLORS.goal);
+                    const apC = attackPoints.find(p => p.id === 'C');
+                    if (apC && !apC.used) {
+                        apC.active = false;
+                        apC.mesh.material.color.setHex(0x888888);
+                    }
+                }
+            }
+
+            attackPoints.forEach(ap => {
+                if (ap.active && !ap.used) {
+                    const dx = pearl.mesh.position.x - ap.mesh.position.x;
+                    const dz = pearl.mesh.position.z - ap.mesh.position.z;
+                    const dy = pearl.mesh.position.y - ap.mesh.position.y;
+                    
+                    if (Math.sqrt(dx*dx + dz*dz) < 2 && dy > 0 && dy < 1.5 && pearl.velocity.y <= 0) {
+                        ap.used = true;
+                        ap.active = false;
+                        ap.mesh.material.color.setHex(COLORS.goal);
+                        
+                        fireProjectile(ap.mesh.position, boss.position, () => {
+                            bossHP--;
+                            sweetness += 34;
+                            createParticles(boss.position, 0xFFFFFF);
+                            
+                            const lightness = (3 - bossHP) / 3;
+                            const baseColor = new THREE.Color(0x553311);
+                            const targetColor = new THREE.Color(0xFFFFFF);
+                            boss.material.color.lerpColors(baseColor, targetColor, lightness);
+
+                            if (bossHP <= 0) {
+                                levelComplete = true;
+                                sweetness = 100;
+                                document.getElementById('bitter-overlay').style.display = 'none';
+                                document.getElementById('victory-screen').style.display = 'flex'; // 顯示通關畫面
+                            } else {
+                                showDialog("命中！還剩 " + bossHP + " 次！", 1000);
+                            }
+                        });
+                    }
+                }
+            });
+
+            updateSweetnessUI();
+        };
+    }
+
+    function updateSweetnessUI() {
+        document.getElementById('sweetness-bar').style.width = sweetness + '%';
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (!isGameRunning) return;
+        const dt = Math.min(clock.getDelta(), 0.1);
+
+        pearl.handleInput(dt);
+        pearl.update(dt);
+        pudding.handleInput(dt);
+        pudding.update(dt);
+
+        interactables.forEach(obj => {
+            if (obj.autoTrigger) {
+                [pearl, pudding].forEach(p => {
+                    if (p.mesh.position.distanceTo(obj.position) < obj.radius) obj.autoTrigger();
+                });
+            }
+        });
+
+        if (scene.userData.update) scene.userData.update();
+
+        const center = new THREE.Vector3().addVectors(pearl.mesh.position, pudding.mesh.position).multiplyScalar(0.5);
+        const targetPos = new THREE.Vector3(center.x, center.y + 25, center.z + 30);
+        camera.position.lerp(targetPos, 0.05);
+        camera.lookAt(center.x, 0, center.z);
+
+        renderer.render(scene, camera);
+    }
+
+    function startGame() {
+        document.getElementById('overlay-screen').style.display = 'none';
+        isGameRunning = true;
+        init();
+        pearl = new Pearl();
+        pudding = new Pudding();
+        loadLevel(1); 
+        animate();
+    }
+</script>
+</body>
+</html>
